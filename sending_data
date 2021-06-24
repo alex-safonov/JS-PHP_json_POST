@@ -1,0 +1,156 @@
+<?php if(!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true)die();?>
+
+<div id="telegram-bot">
+<img src="/upload/medialibrary/icon_teleg.svg" width="100px" height="100px" style="position: fixed;
+    right: 20px; top: auto; bottom: 20px; z-index: 9999;">
+</div>
+
+<?
+$specializations = [];
+foreach ($arResult['PROPS']['SPECIALIZATION']['VALUE'] as $key => $value) {
+$specializations[] = $value;
+}
+$specializations_list = json_encode($specializations);
+// echo($specializations_list);
+
+// Блок с MD5:
+
+// echo $arResult['FIELDS']['ID'];
+// echo "<br>";
+
+// $id1 = '21321'; // ID вручную
+// $hash = md5($id1); // Хэшируем ID вручную
+// $salt = 'salt_procharity'; // Соль
+// // Солим пароль: конкатенируем старый хэш с солью и ещё раз хэшируем
+// $saltedHash = md5($hash . $salt);
+// echo "$saltedHash<br>";
+
+// $id2 = $arResult['FIELDS']['ID']; // ID волонтёра из базы
+// $hash2 = md5($id2); // Хэшируем ID волонтёра из базы
+// $salt = 'salt_procharity'; // Соль
+// // Солим пароль: конкатенируем старый хэш с солью и ещё раз хэшируем
+// $saltedHash2 = md5($hash2 . $salt);
+// echo "$saltedHash2<br>";
+// echo "$hash2<br>";
+
+
+// Блок с шифрованием openssl_encrypt (упрощенноё шифрование):
+
+// Шифруем ID волонтёра:
+$data = $arResult['FIELDS']['ID'];
+
+// Выставляем пароль:
+$password = 'Psw_Procharity';
+
+// Приравниваем ключ без хеширования (упрощаем):
+$key = $password;
+
+
+// Выбираем метод шифрования:
+$method = 'aes-128-cbc';
+
+// Создаём вектор инициализации (IV, Initialization Vector)
+$iv = "12345678";
+
+// Всё готово к шифрованию. Вызываем метод openssl_encrypt():
+$encrypted = openssl_encrypt(
+    $data,
+    $method,
+    $key,
+    // передаём флаг OPENSSL_RAW_DATA,
+    // чтобы openssl не прогнал результат через base64 и вернул его как есть
+    OPENSSL_RAW_DATA,
+    $iv
+);
+
+
+// Теперь прогоняем результат через base64:
+$encrypted = base64_encode($encrypted); 
+$encrypted_for_get = $encrypted; 
+// echo "Зашифрованная строка для передачи - $encrypted";
+
+
+// Можно передавать и расшифровывать строку
+// Декодируем base64:
+$encrypted = base64_decode($encrypted);
+
+// Указываем данные для расшифровки:
+$password2 = 'Psw_Procharity';
+$key2 = $password2;
+$method2 = 'aes-128-cbc';
+$iv2 = "12345678";
+
+
+// И вызываем openssl_decrypt():
+
+$decrypted = openssl_decrypt(
+    $encrypted,
+    $method2,
+    $key2,
+    OPENSSL_RAW_DATA,
+    $iv2
+);
+// Выводим результат:
+// echo "<br>Расшифрованный ID волонтёра - $decrypted"; 
+
+?>
+
+<p class="result" style="color:blue"></p> 
+
+<script type="text/javascript">
+
+let volonteer_id;
+volonteer_id = "<?php echo $arResult['FIELDS']['ID'] ?>;"
+let volonteer_name;
+volonteer_name = "<?php echo $arResult['PROPS']['NAME']['VALUE'] ?>;"
+let volonteer_email;
+volonteer_email = "<?php echo $arResult['BITRIX_USER']['LOGIN'] ?>;"
+let volonteer_specialization = [];
+volonteer_specialization = JSON.parse('<?php echo $specializations_list; ?>');
+
+// $('#telegram-bot').on('click', function(){
+// 	console.log('id:'+volonteer_id);
+// 	console.log('name:'+volonteer_name);
+// 	console.log('email:'+volonteer_email);
+// 	console.log('specializations:'+volonteer_specialization);
+// });
+</script>
+
+
+<script>
+  // эта функция сработает при нажатии на кнопку
+  function sendJSON() {
+    // а вот сюда мы поместим ответ от сервера
+    let result = document.querySelector('.result');
+    // создаём новый экземпляр запроса XHR
+    let xhr = new XMLHttpRequest();
+    // адрес, куда мы отправим нашу JSON-строку
+    let url = "//test3.procharity.corptest.ru/_serv/cron/json_telegram_bot_add.php?encrypted_string=<?echo $encrypted_for_get?>";
+    // открываем соединение
+    xhr.open("POST", url, true);
+    // устанавливаем заголовок — выбираем тип контента, который отправится на сервер, в нашем случае мы явно пишем, что это JSON
+    xhr.setRequestHeader("Content-Type", "application/json");
+    // когда придёт ответ на наше обращение к серверу, мы его обработаем здесь
+    xhr.onreadystatechange = function () {
+      // если запрос принят и сервер ответил, что всё в порядке
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        // выводим то, что ответил нам сервер — так мы убедимся, что данные он получил правильно
+        result.innerHTML = this.responseText;
+      }
+    };
+    // помещаем данные в JSON
+    var data = JSON.stringify({ "id": volonteer_id, "name": volonteer_name, "email": volonteer_email, "specializations": volonteer_specialization});
+    // когда всё готово, отправляем JSON на сервер
+    xhr.send(data);
+  };
+
+$('#telegram-bot').on('click', function(){
+	console.log('id:'+volonteer_id);
+	console.log('name:'+volonteer_name);
+	console.log('email:'+volonteer_email);
+	console.log('specializations:'+volonteer_specialization);
+
+	sendJSON(); // запускаем фунцию отправки данных
+});
+
+</script>
